@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Igor9232/Velor/releases/latest/download/Velor-0.1.0-x64.exe">
+  <a href="https://github.com/Igor9232/Velor/releases/latest/download/Velor-0.1.1-x64.exe">
     <strong>⬇ Download Velor for Windows (x64)</strong>
   </a>
   &nbsp;·&nbsp;
@@ -22,7 +22,7 @@
 ### Why Velor?
 
 - **GPU-first rendering (DirectX 12 &amp; Vulkan)** — smooth scrolling and zooming even on multi-hundred-megabyte print PDFs, with tiled rendering and draft-to-sharp refinement.
-- **Built-in installer &amp; Windows integration** — open `Velor-0.1.0-x64.exe`, pick your language (**English** or **Hrvatski**), and install per-user without administrator rights (registers Windows **"Open with…"** and **Default apps**), or run it portable right away.
+- **Built-in installer &amp; Windows integration** — open `Velor-0.1.1-x64.exe`, pick your language (**English** or **Hrvatski**), and install per-user without administrator rights (registers Windows **"Open with…"** and **Default apps**), or run it portable right away.
 - **Full PDF toolkit** — direct text/image content editing, 25+ annotation tools, interactive forms (FDF/XFDF/CSV/flatten), page organizer (merge, split, crop, resize, watermarks, Bates, bookmarks), PDF/A-2b/3b conversion, optimization, and export to DOCX, Markdown, HTML, CSV, SVG, PNG, JPEG, and TIFF.
 - **Security &amp; digital signatures** — permanent redaction, hidden-data sanitization, AES-256 protection, and PAdES digital signing &amp; verification (Windows certificate store / smart cards / PFX, RFC 3161 timestamps, OCSP/CRL, EU trusted lists).
 - **Prepress &amp; print production** — CMYK + spot separation preview, overprint &amp; ICC soft-proofing, TAC inspection, calibrated measurements, preflight &amp; fixups, plus vector &amp; raster printing.
