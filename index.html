@@ -1,0 +1,1213 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Velor 0.2.2 · GPU PDF reader, editor and CMYK prepress for Windows</title>
+<meta name="description" content="A native Windows PDF reader, editor and CMYK prepress studio built from scratch in Rust with Vello compute shaders. 34 MB, 100% offline, one-time license.">
+<link rel="canonical" href="https://velor.voidown.com/">
+<meta name="theme-color" content="#F3F0E8">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Velor · PDF software that treats your GPU like a GPU">
+<meta property="og:description" content="Native Windows PDF reader, editor and CMYK prepress studio in pure Rust. 479 Mpx in 85 ms, 240 Hz scrolling, never touches the network.">
+<meta property="og:url" content="https://velor.voidown.com/">
+<meta property="og:image" content="https://velor.voidown.com/assets/demo-poster.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="preload" as="image" href="assets/demo-poster.jpg">
+<script>
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem('velor-lang'); } catch (e) {}
+    var lang = saved === 'hr' || saved === 'en' ? saved : ((navigator.language || '').toLowerCase().indexOf('hr') === 0 ? 'hr' : 'en');
+    document.documentElement.setAttribute('data-lang', lang);
+    document.documentElement.lang = lang;
+  })();
+</script>
+<style>
+:root {
+  --paper: #F3F0E8;
+  --paper-deep: #EAE6DC;
+  --ink: #111113;
+  --ink-2: #3D3B36;
+  --ink-3: #66625A;
+  --rule: #D6D1C6;
+  --ember: #C83E17;
+  --ember-ink: #A8320F;
+  --c: #00A0E3;
+  --m: #E6007E;
+  --y: #FFE600;
+  --k: #111113;
+  --viewport: #0F1013;
+  --viewport-line: #26272C;
+  --on-dark: #F3F0E8;
+  --on-dark-2: #A9A59C;
+
+  --sans: "Archivo", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  --gutter: 40px;
+  --gap: 24px;
+  --max: 1360px;
+  --cm: 30px;   /* crop mark length */
+  --cg: 8px;    /* crop mark gap */
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overflow-x: clip; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.55;
+  font-variation-settings: "wdth" 100;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+html[data-lang="hr"] .l-en, html[data-lang="en"] .l-hr { display: none !important; }
+img, video, svg { display: block; max-width: 100%; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { color: var(--ember-ink); }
+::selection { background: var(--y); color: var(--ink); }
+:focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; }
+button { font: inherit; color: inherit; }
+h1, h2, h3, p, ul, ol, dl, dd, figure { margin: 0; }
+ul { padding: 0; list-style: none; }
+
+.wrap { width: 100%; max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding: 0 var(--gutter); }
+.grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--gap); }
+.mono { font-family: var(--mono); font-size: 13px; letter-spacing: 0.01em; }
+.vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+.skip { position: absolute; left: 12px; top: -60px; z-index: 50; background: var(--ink); color: var(--paper); padding: 10px 14px; }
+.skip:focus { top: 12px; }
+
+/* ---------- header ---------- */
+.top {
+  position: sticky; top: 0; z-index: 20;
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--rule);
+}
+.top-in { display: flex; align-items: center; gap: 28px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; margin-right: auto; }
+.brand img { width: 28px; height: 28px; }
+.brand-name { font-size: 21px; font-weight: 680; font-variation-settings: "wdth" 96; letter-spacing: -0.02em; }
+.brand-ver { font-family: var(--mono); font-size: 12px; color: var(--ink-3); padding-top: 3px; }
+.nav { display: flex; gap: 22px; }
+.nav a { text-decoration: none; font-size: 15px; color: var(--ink-2); display: flex; gap: 6px; align-items: baseline; }
+.nav a b { font-family: var(--mono); font-weight: 400; font-size: 11px; color: var(--ink-3); }
+.nav a:hover { color: var(--ink); }
+.lang { display: flex; border: 1px solid var(--ink); }
+.lang button {
+  border: 0; background: transparent; cursor: pointer;
+  font-family: var(--mono); font-size: 12px; padding: 5px 9px; line-height: 1;
+}
+.lang button + button { border-left: 1px solid var(--ink); }
+.lang button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.top-dl {
+  display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px;
+  background: var(--ink); color: var(--paper); text-decoration: none; font-size: 14px; font-weight: 560;
+}
+.top-dl:hover { background: var(--ember); color: var(--paper); }
+
+/* ---------- crop marks ---------- */
+.sheet { position: relative; }
+.crop { position: absolute; width: calc(var(--cm) + var(--cg)); height: calc(var(--cm) + var(--cg)); pointer-events: none; }
+.crop::before, .crop::after { content: ""; position: absolute; background: var(--ink); }
+.crop::before { width: var(--cm); height: 1px; }
+.crop::after { width: 1px; height: var(--cm); }
+.crop.tl { left: calc(-1 * (var(--cm) + var(--cg))); top: calc(-1 * (var(--cm) + var(--cg))); }
+.crop.tl::before { left: 0; bottom: 0; } .crop.tl::after { right: 0; top: 0; }
+.crop.tr { right: calc(-1 * (var(--cm) + var(--cg))); top: calc(-1 * (var(--cm) + var(--cg))); }
+.crop.tr::before { right: 0; bottom: 0; } .crop.tr::after { left: 0; top: 0; }
+.crop.bl { left: calc(-1 * (var(--cm) + var(--cg))); bottom: calc(-1 * (var(--cm) + var(--cg))); }
+.crop.bl::before { left: 0; top: 0; } .crop.bl::after { right: 0; bottom: 0; }
+.crop.br { right: calc(-1 * (var(--cm) + var(--cg))); bottom: calc(-1 * (var(--cm) + var(--cg))); }
+.crop.br::before { right: 0; top: 0; } .crop.br::after { left: 0; bottom: 0; }
+
+.reg { width: 22px; height: 22px; color: var(--ink); flex: none; }
+
+/* ---------- hero ---------- */
+.hero { padding: 48px 0 40px; }
+.hero .sheet { padding: 28px 0 0; }
+.slug-top { grid-row: 1; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 32px; }
+.eyebrow { font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em; color: var(--ink-2); }
+.inks { display: flex; align-items: center; gap: 14px; }
+.inks span { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+.inks i { width: 9px; height: 9px; border-radius: 50%; display: block; }
+
+h1 {
+  grid-column: 1 / span 8; grid-row: 2;
+  font-size: clamp(44px, 6.9vw, 100px);
+  line-height: 0.93;
+  font-weight: 700;
+  font-variation-settings: "wdth" 84;
+  letter-spacing: -0.038em;
+  text-wrap: balance;
+  max-width: 13.5ch;
+}
+html[data-lang="hr"] h1 { max-width: 15ch; }
+.hero-sub {
+  grid-column: 1 / span 6; grid-row: 3; margin-top: 32px;
+  font-size: 21px; line-height: 1.45; color: var(--ink-2); max-width: 36em;
+}
+.hero-dl { grid-column: 9 / span 4; grid-row: 2 / span 2; align-self: end; }
+.btn-dl {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  min-height: 60px; padding: 0 20px 0 22px;
+  background: var(--ink); color: var(--paper); text-decoration: none;
+  font-size: 18px; font-weight: 600; font-variation-settings: "wdth" 96;
+}
+.btn-dl svg { width: 20px; height: 20px; flex: none; }
+.btn-dl:hover { background: var(--ember); color: var(--paper); }
+.link-rel { display: inline-block; margin-top: 14px; font-size: 15px; }
+.micro { margin-top: 22px; border-top: 1px solid var(--rule); }
+.micro li { font-size: 14px; color: var(--ink-3); padding: 8px 0; border-bottom: 1px solid var(--rule); display: flex; gap: 10px; }
+.micro li::before { content: ""; width: 6px; height: 1px; background: var(--ink-3); margin-top: 11px; flex: none; }
+
+/* figure 1: the reel */
+.reel { grid-column: 1 / -1; margin-top: 48px; }
+.viewport { background: var(--viewport); border: 1px solid var(--viewport); }
+.viewport video { width: 100%; height: auto; aspect-ratio: 16 / 9; background: var(--viewport); cursor: pointer; }
+.transport {
+  display: flex; align-items: center; gap: 4px; padding: 0 6px 0 16px; height: 44px;
+  border-top: 1px solid var(--viewport-line); color: var(--on-dark-2);
+  font-family: var(--mono); font-size: 12px;
+}
+.transport .t-name { margin-right: auto; }
+.transport time { color: var(--on-dark); font-variant-numeric: tabular-nums; margin-right: 10px; }
+.tbtn {
+  display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px;
+  background: transparent; border: 1px solid var(--viewport-line); color: var(--on-dark); cursor: pointer;
+  font-family: var(--mono); font-size: 12px;
+}
+.tbtn:hover { border-color: var(--on-dark-2); }
+.tbtn svg { width: 12px; height: 12px; }
+.reel[data-state="playing"] .when-paused, .reel[data-state="paused"] .when-playing { display: none; }
+.cap { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 0 var(--gap); margin-top: 14px; font-size: 14px; color: var(--ink-3); max-width: 900px; }
+.cap b { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--ink); padding-top: 2px; }
+
+/* colour control strip */
+.strip { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; margin-top: 40px; }
+.patches { display: flex; flex: 1; height: 16px; outline: 1px solid var(--rule); }
+.patches i { flex: 1; display: block; }
+.patches i:nth-child(12n+1) { background: var(--c); }
+.patches i:nth-child(12n+2) { background: var(--m); }
+.patches i:nth-child(12n+3) { background: var(--y); }
+.patches i:nth-child(12n+4) { background: var(--k); }
+.patches i:nth-child(12n+5) { background: #2E3192; }
+.patches i:nth-child(12n+6) { background: #E3262B; }
+.patches i:nth-child(12n+7) { background: #00A651; }
+.patches i:nth-child(12n+8) { background: #3A3733; }
+.patches i:nth-child(12n+9) { background: #4B4A4C; }
+.patches i:nth-child(12n+10) { background: #8D8B87; }
+.patches i:nth-child(12n+11) { background: #C5C1B8; }
+.patches i:nth-child(12n+12) { background: var(--paper); }
+.slug-bottom { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 24px; margin-top: 10px; color: var(--ink-3); }
+.slug-bottom span { white-space: nowrap; }
+
+/* ---------- sections ---------- */
+.sec { border-top: 1px solid var(--ink); padding: 28px 0 112px; row-gap: 0; }
+.sec-head { grid-column: 1 / span 3; grid-row: 1 / span 20; align-self: start; position: sticky; top: 84px; display: flex; align-items: baseline; gap: 10px; }
+.sec-no { font-size: 64px; line-height: 0.85; font-weight: 620; font-variation-settings: "wdth" 62; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.sec-name { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.c-main { grid-column: 4 / -1; }
+.c-text { grid-column: 4 / span 7; }
+.c-full { grid-column: 1 / -1; }
+h2 {
+  font-size: clamp(34px, 4.3vw, 62px); line-height: 0.98; font-weight: 660;
+  font-variation-settings: "wdth" 88; letter-spacing: -0.03em; text-wrap: balance; max-width: 18ch;
+}
+.lead { margin-top: 24px; font-size: 21px; line-height: 1.45; color: var(--ink-2); max-width: 34em; }
+h3 { font-size: 23px; line-height: 1.15; font-weight: 650; font-variation-settings: "wdth" 96; letter-spacing: -0.01em; }
+.figcap { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 0 16px; margin-top: 14px; font-size: 14px; color: var(--ink-3); max-width: 760px; }
+.figcap b { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--ink); padding-top: 2px; }
+
+/* fig 2: thread lanes */
+.lanes { margin-top: 56px; }
+.lanes-box { border: 1px solid var(--ink); padding: 18px 20px 20px; background: var(--paper); }
+.lane-row { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 16px; align-items: center; }
+.lane-row + .lane-row { margin-top: 10px; }
+.lane-name { font-size: 14px; font-weight: 600; line-height: 1.2; }
+.lane-name small { display: block; font-family: var(--mono); font-size: 11px; font-weight: 400; color: var(--ink-3); margin-top: 2px; }
+.track { position: relative; height: 34px; background:
+  linear-gradient(to right, var(--ink) 0 1px, transparent 1px) 0 0 / 50% 100% repeat-x;
+  border-right: 1px solid var(--ink); }
+.track.axis { height: 22px; background: none; border: 0; }
+.axis span { position: absolute; top: 2px; font-family: var(--mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.blk {
+  position: absolute; top: 5px; bottom: 5px; display: flex; align-items: center; padding: 0 8px;
+  font-family: var(--mono); font-size: 11px; white-space: nowrap; overflow: hidden; font-style: normal;
+}
+.blk.ui { background: var(--ink); color: var(--paper); min-width: max-content; }
+.blk.wk { background: repeating-linear-gradient(135deg, var(--paper-deep) 0 5px, #DDD8CC 5px 6px); border: 1px solid #BDB7AA; color: var(--ink-2); }
+.blk.gpu { background: color-mix(in srgb, var(--ember) 14%, var(--paper)); border: 1px solid color-mix(in srgb, var(--ember) 55%, var(--paper)); color: var(--ember-ink); }
+.blk.half { top: 3px; bottom: 18px; }
+.blk.half2 { top: 18px; bottom: 3px; }
+.budget { position: absolute; top: 0; height: 1px; }
+
+/* measured table */
+.measure { margin-top: 72px; border-top: 1px solid var(--ink); }
+.m-row { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--gap); padding: 22px 0 24px; border-bottom: 1px solid var(--rule); }
+.m-head { padding: 10px 0; border-bottom: 1px solid var(--ink); color: var(--ink-3); }
+.m-num { grid-column: 1 / span 3; font-size: clamp(44px, 5vw, 74px); line-height: 0.9; font-weight: 620; font-variation-settings: "wdth" 64; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.m-num small { font-size: 0.42em; font-weight: 560; letter-spacing: 0; margin-left: 4px; font-variation-settings: "wdth" 80; }
+.m-num.ember { color: var(--ember); }
+.m-what { grid-column: 4 / span 4; font-size: 18px; line-height: 1.4; padding-top: 4px; }
+.m-detail { grid-column: 8 / span 5; font-size: 15px; line-height: 1.5; color: var(--ink-2); padding-top: 6px; }
+.m-detail code, .m-what code, .faq code, .tiers code, .fallback code { font-family: var(--mono); font-size: 0.86em; background: var(--paper-deep); padding: 1px 4px; }
+.m-head > span:nth-child(1) { grid-column: 1 / span 3; }
+.m-head > span:nth-child(2) { grid-column: 4 / span 4; }
+.m-head > span:nth-child(3) { grid-column: 8 / span 5; }
+.rig { margin-top: 14px; color: var(--ink-3); }
+.bars { margin-top: 14px; display: grid; gap: 6px; }
+.bar { display: grid; grid-template-columns: 150px minmax(0, 1fr) 64px; gap: 10px; align-items: center; font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); }
+.bar i { display: block; height: 10px; background: var(--ink); min-width: 3px; }
+.bar.first i { background: var(--ember); }
+.bar.before i { background: repeating-linear-gradient(135deg, #BDB7AA 0 2px, transparent 2px 5px); outline: 1px solid #BDB7AA; outline-offset: -1px; }
+.bar b { font-weight: 500; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- toolkit ---------- */
+.matrix { margin-top: 64px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.disc { padding: 22px 24px 26px; }
+.disc + .disc { border-left: 1px solid var(--rule); }
+.disc:first-child { padding-left: 0; }
+.tier-tag { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.sq { width: 10px; height: 10px; flex: none; display: inline-block; }
+.sq.free { border: 1px solid var(--ink); }
+.sq.pro { background: var(--ink); }
+.sq.studio { background: var(--ember); }
+.disc ul { margin-top: 22px; border-top: 1px solid var(--rule); }
+.disc li { font-size: 15.5px; line-height: 1.4; padding: 9px 0; border-bottom: 1px solid var(--rule); }
+.disc-foot { margin-top: 16px; font-size: 14px; color: var(--ink-3); }
+
+/* fig 3: plate viewer */
+.plates { margin-top: 72px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--gap); }
+.plates-side { grid-column: 1 / span 3; display: flex; flex-direction: column; }
+.plates-side h3 { font-size: 20px; }
+.plates-side .p-intro { margin-top: 10px; font-size: 14.5px; color: var(--ink-2); }
+.plate-btns { margin-top: 20px; border-top: 1px solid var(--ink); }
+.plate-btns button {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 2px; cursor: pointer;
+  background: transparent; border: 0; border-bottom: 1px solid var(--rule); text-align: left; font-size: 15px;
+}
+.plate-btns button .key { font-family: var(--mono); font-size: 12px; color: var(--ink-3); margin-left: auto; }
+.plate-btns button[aria-pressed="true"] { font-weight: 650; }
+.plate-btns button[aria-pressed="true"]::after { content: ""; width: 0; height: 0; border-left: 7px solid var(--ink); border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+.plate-btns button:hover { background: var(--paper-deep); }
+.swatch { width: 14px; height: 14px; flex: none; outline: 1px solid rgba(17,17,19,0.25); outline-offset: -1px; }
+.sw-all { background: conic-gradient(var(--c) 0 25%, var(--m) 0 50%, var(--y) 0 75%, var(--k) 0); }
+.sw-c { background: var(--c); } .sw-m { background: var(--m); } .sw-y { background: var(--y); } .sw-k { background: var(--k); }
+.sw-tac { background: repeating-linear-gradient(135deg, var(--m) 0 2px, #fff 2px 4px); }
+.plate-note { margin-top: 16px; font-size: 14px; color: var(--ink-3); min-height: 4.5em; }
+.plates-view { grid-column: 4 / -1; }
+.plates-view .viewport img { width: 100%; height: auto; aspect-ratio: 1440 / 860; }
+
+/* ---------- licensing ---------- */
+.beta-note { margin-top: 40px; padding: 18px 22px; border-left: 3px solid var(--ember); background: var(--paper-deep); font-size: 18px; line-height: 1.5; max-width: 46em; }
+.tiers {
+  margin-top: 56px;
+  display: grid; grid-template-columns: minmax(0, 2.2fr) repeat(3, minmax(0, 3fr)); grid-template-rows: repeat(8, auto);
+  border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink);
+}
+.tier-labels, .tier { grid-row: 1 / span 8; display: grid; grid-template-rows: subgrid; }
+.tier { border-left: 1px solid var(--rule); }
+.tier.studio { border-top: 3px solid var(--ember); margin-top: -2px; }
+.tier-labels > span, .tier > * { padding: 14px 20px; border-bottom: 1px solid var(--rule); }
+.tier-labels > span { padding-left: 0; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+.tier-labels > span:last-child, .tier > *:last-child { border-bottom: 0; }
+.t-name { padding-top: 20px !important; padding-bottom: 18px !important; }
+.t-name h3 { font-size: 26px; }
+.t-name p { margin-top: 6px; display: flex; gap: 8px; align-items: center; font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.t-lab { display: none; }
+.price { font-size: 56px; line-height: 0.95; font-weight: 640; font-variation-settings: "wdth" 66; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.price-was { font-size: 26px; font-weight: 560; font-variation-settings: "wdth" 70; font-variant-numeric: tabular-nums; }
+.t-cell { font-size: 15px; line-height: 1.45; }
+.t-cta { display: flex; flex-direction: column; justify-content: flex-start; gap: 10px; padding-top: 20px !important; padding-bottom: 22px !important; }
+.btn-buy {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0 16px;
+  border: 1px solid var(--ink); text-decoration: none; font-weight: 600; font-size: 15.5px;
+}
+.btn-buy:hover { background: var(--ink); color: var(--paper); }
+.btn-buy.solid { background: var(--ink); color: var(--paper); }
+.btn-buy.solid:hover { background: var(--ember); border-color: var(--ember); }
+.btn-buy svg { width: 16px; height: 16px; flex: none; }
+.t-small { font-size: 13px; color: var(--ink-3); }
+.buy-note { margin-top: 14px; color: var(--ink-3); font-size: 14px; }
+
+.fallback { margin-top: 88px; display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); column-gap: var(--gap); }
+.fallback-text { grid-column: 1 / span 4; }
+.fallback-text p { margin-top: 14px; font-size: 16.5px; color: var(--ink-2); }
+.fallback-fig { grid-column: 5 / -1; padding-top: 6px; }
+.tline { position: relative; height: 146px; margin: 0 8px; }
+.tline-axis { position: absolute; left: 0; right: 0; top: 78px; height: 1px; background: var(--ink); }
+.tline-axis::after { content: ""; position: absolute; right: -1px; top: -4px; border-left: 8px solid var(--ink); border-top: 4.5px solid transparent; border-bottom: 4.5px solid transparent; }
+.tline-win { position: absolute; top: 26px; height: 92px; background: color-mix(in srgb, var(--ember) 9%, transparent); border-left: 1px solid var(--ember); border-right: 1px solid var(--ember); }
+.tline-win span { position: absolute; left: 8px; right: 8px; top: 6px; font-family: var(--mono); font-size: 11px; line-height: 1.3; color: var(--ember-ink); }
+.tline-mark { position: absolute; top: 126px; transform: translateX(-50%); font-family: var(--mono); font-size: 11px; color: var(--ink-2); white-space: nowrap; }
+.tick { position: absolute; top: 72px; width: 13px; height: 13px; margin-left: -6.5px; border: 1.5px solid var(--ink); border-radius: 50%; background: var(--paper); }
+.tick.in { background: var(--ink); }
+.tick b { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 11px; font-weight: 500; white-space: nowrap; }
+.tline-legend { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 4px; font-size: 13.5px; color: var(--ink-2); }
+.tline-legend span { display: flex; align-items: center; gap: 8px; }
+.tline-legend i { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid var(--ink); display: block; }
+.tline-legend i.in { background: var(--ink); }
+
+/* ---------- verification ---------- */
+.verify { margin-top: 48px; }
+.code { margin-top: 16px; background: var(--viewport); color: var(--on-dark); border: 1px solid var(--viewport); }
+.code-bar { display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 6px 0 16px; border-bottom: 1px solid var(--viewport-line); font-family: var(--mono); font-size: 12px; color: var(--on-dark-2); }
+.code pre { margin: 0; padding: 18px 16px 20px; overflow-x: auto; font-family: var(--mono); font-size: 13.5px; line-height: 1.7; }
+.code .v { color: #8FC7E8; }
+.code .s { color: #F0B49E; }
+.code .k { color: var(--on-dark-2); }
+.copy .when-done, .copy.done .when-idle { display: none; }
+.copy.done .when-done { display: inline; }
+.facts { margin-top: 28px; display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); column-gap: var(--gap); }
+.facts dl { grid-column: 1 / span 5; border-top: 1px solid var(--ink); }
+.facts dl div { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.facts dt { font-family: var(--mono); font-size: 12px; color: var(--ink-3); padding-top: 2px; }
+.facts dd { font-size: 15px; }
+.facts dd.hash { font-family: var(--mono); font-size: 13px; word-break: break-all; line-height: 1.5; }
+.hash-row { display: flex; gap: 10px; align-items: flex-start; }
+.copy-mini { flex: none; border: 1px solid var(--ink); background: transparent; cursor: pointer; font-family: var(--mono); font-size: 11px; padding: 3px 7px; }
+.copy-mini:hover { background: var(--ink); color: var(--paper); }
+.smartscreen { grid-column: 6 / -1; border-top: 1px solid var(--ink); padding-top: 14px; }
+.smartscreen p { margin-top: 10px; font-size: 15px; color: var(--ink-2); }
+.smartscreen kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--ink-3); padding: 0 5px; white-space: nowrap; }
+
+.faq { margin-top: 80px; border-top: 1px solid var(--ink); }
+.faq details { border-bottom: 1px solid var(--rule); }
+.faq summary {
+  list-style: none; cursor: pointer; display: grid; grid-template-columns: 44px minmax(0, 1fr) 24px; gap: 12px; align-items: baseline;
+  padding: 20px 0; font-size: 21px; font-weight: 620; font-variation-settings: "wdth" 94; letter-spacing: -0.01em;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary .q-no { font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--ink-3); }
+.faq summary .pm { position: relative; width: 14px; height: 14px; justify-self: end; align-self: center; }
+.faq summary .pm::before, .faq summary .pm::after { content: ""; position: absolute; background: var(--ink); left: 0; top: 6.5px; width: 14px; height: 1.5px; }
+.faq summary .pm::after { transform: rotate(90deg); transition: transform 160ms ease; }
+.faq details[open] summary .pm::after { transform: rotate(0deg); }
+.faq .a { padding: 0 36px 24px 56px; font-size: 16.5px; color: var(--ink-2); max-width: 46em; }
+.faq .a p + p { margin-top: 10px; }
+
+/* ---------- colophon ---------- */
+.colophon { border-top: 1px solid var(--ink); padding: 28px 0 56px; }
+.colophon .strip { margin-top: 0; }
+.colo-line { margin-top: 22px; font-size: 15px; display: flex; flex-wrap: wrap; gap: 4px 0; }
+.colo-line > * + *::before { content: "·"; display: inline-block; margin: 0 10px; color: var(--ink-3); text-decoration: none; }
+.colo-set { margin-top: 8px; color: var(--ink-3); }
+
+/* ---------- load moment: the sheet is marked up, then the strip prints ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .hero .crop::before { animation: cropx 700ms cubic-bezier(.2,.8,.2,1) both 120ms; }
+  .hero .crop::after { animation: cropy 700ms cubic-bezier(.2,.8,.2,1) both 120ms; }
+  .hero .crop.tl::before, .hero .crop.bl::before { transform-origin: right; }
+  .hero .crop.tr::before, .hero .crop.br::before { transform-origin: left; }
+  .hero .crop.tl::after, .hero .crop.tr::after { transform-origin: bottom; }
+  .hero .crop.bl::after, .hero .crop.br::after { transform-origin: top; }
+  .hero .patches i { animation: ink 420ms ease-out both; }
+  .hero .patches i:nth-child(n) { animation-delay: calc(500ms + var(--d, 0) * 1ms); }
+  @keyframes cropx { from { transform: scaleX(0); } }
+  @keyframes cropy { from { transform: scaleY(0); } }
+  @keyframes ink { from { opacity: 0; } }
+  html { scroll-behavior: smooth; }
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 1180px) {
+  .nav a b { display: none; }
+  .nav { gap: 16px; }
+  .hero-dl { grid-column: 8 / -1; }
+  h1 { grid-column: 1 / span 7; }
+}
+@media (max-width: 980px) {
+  :root { --gutter: 28px; --gap: 18px; }
+  .nav { display: none; }
+  .sec-head { grid-column: 1 / -1; grid-row: auto; position: static; margin-bottom: 28px; }
+  .c-main, .c-text { grid-column: 1 / -1; }
+  h1 { grid-column: 1 / -1; }
+  .hero-sub { grid-column: 1 / -1; }
+  .hero-dl { grid-column: 1 / -1; grid-row: 4; align-self: start; margin-top: 32px; max-width: 520px; }
+  .m-num { grid-column: 1 / -1; }
+  .m-what { grid-column: 1 / span 6; margin-top: 10px; }
+  .m-detail { grid-column: 7 / -1; margin-top: 10px; }
+  .m-head { display: none; }
+  .matrix { grid-template-columns: 1fr; }
+  .disc { padding: 22px 0 24px; }
+  .disc + .disc { border-left: 0; border-top: 1px solid var(--ink); }
+  .plates-side, .plates-view { grid-column: 1 / -1; }
+  .plates-view { margin-top: 20px; order: 2; }
+  .plate-btns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 14px; }
+  .plate-note { order: 3; min-height: 0; }
+  .fallback { grid-template-columns: 1fr; }
+  .fallback-text, .fallback-fig { grid-column: 1 / -1; }
+  .fallback-fig { margin-top: 32px; }
+  .facts { grid-template-columns: 1fr; }
+  .facts dl, .smartscreen { grid-column: 1 / -1; }
+  .smartscreen { margin-top: 32px; }
+}
+@media (max-width: 860px) {
+  .tiers { display: block; border: 0; }
+  .tier-labels { display: none; }
+  .tier { display: block; border: 1px solid var(--ink); margin-top: 18px; }
+  .tier.studio { margin-top: 18px; border-top: 3px solid var(--ember); }
+  .tier > * { padding: 12px 18px; }
+  .t-cell { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; align-items: baseline; }
+  .t-lab { display: block; font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); }
+  .price { font-size: 46px; }
+  .t-cta { padding-top: 16px !important; }
+}
+@media (max-width: 600px) {
+  :root { --gutter: 20px; --gap: 14px; --cm: 12px; --cg: 4px; }
+  body { font-size: 16px; }
+  .top-in { gap: 12px; height: 56px; }
+  .brand-ver { display: none; }
+  .top-dl span.long { display: none; }
+  .hero { padding: 40px 0 28px; }
+  .hero .sheet { padding-top: 18px; }
+  .slug-top { padding-bottom: 26px; align-items: flex-start; }
+  .eyebrow { font-size: 11px; letter-spacing: 0.04em; }
+  .inks { display: none; }
+  .hero-sub { font-size: 18px; margin-top: 24px; }
+  .btn-dl { font-size: 16px; min-height: 56px; }
+  .reel { margin-top: 40px; }
+  .transport .t-name { display: none; }
+  .transport { padding-left: 10px; }
+  .cap { grid-template-columns: 1fr; }
+  .patches i:nth-child(n+13) { display: none; }
+  .reg { width: 18px; height: 18px; }
+  .sec { padding: 22px 0 80px; }
+  .sec-no { font-size: 52px; }
+  .lead { font-size: 18px; }
+  .lane-row { grid-template-columns: 1fr; gap: 6px; }
+  .lane-row.axis-row .lane-name { display: none; }
+  .lanes-box { padding: 14px; }
+  .m-what, .m-detail { grid-column: 1 / -1; }
+  .bar { grid-template-columns: 110px minmax(0, 1fr) 52px; }
+  .plate-btns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .figcap { grid-template-columns: 1fr; }
+  .beta-note { font-size: 16px; padding: 14px 16px; }
+  .t-cell { grid-template-columns: 96px minmax(0, 1fr); }
+  .facts dl div { grid-template-columns: 1fr; gap: 2px; }
+  .faq summary { grid-template-columns: 30px minmax(0, 1fr) 18px; font-size: 18px; }
+  .faq .a { padding: 0 0 20px 42px; font-size: 15.5px; }
+  .code pre { font-size: 12px; }
+  .tline-win span { font-size: 10px; }
+  .tick b { font-size: 10px; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main"><span class="l-en">Skip to content</span><span class="l-hr">Preskoči na sadržaj</span></a>
+
+<header class="top">
+  <div class="wrap top-in">
+    <a class="brand" href="#top" aria-label="Velor">
+      <img src="assets/logo.png" alt="" width="28" height="28">
+      <span class="brand-name">Velor</span>
+      <span class="brand-ver">0.2.2 beta</span>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#engine"><b>01</b><span class="l-en">Engine</span><span class="l-hr">Motor</span></a>
+      <a href="#toolkit"><b>02</b><span class="l-en">Toolkit</span><span class="l-hr">Alati</span></a>
+      <a href="#licensing"><b>03</b><span class="l-en">Licensing</span><span class="l-hr">Licenciranje</span></a>
+      <a href="#verification"><b>04</b><span class="l-en">Verification</span><span class="l-hr">Provjera</span></a>
+    </nav>
+    <div class="lang" role="group" aria-label="Language / Jezik">
+      <button type="button" data-set-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-set-lang="hr" aria-pressed="false">HR</button>
+    </div>
+    <a class="top-dl" href="https://github.com/Igor9232/Velor/releases/download/v0.2.2/Velor-0.2.2-x64.exe">
+      <span class="l-en">Download</span><span class="l-hr">Preuzmi</span><span class="long">&nbsp;34 MB</span>
+    </a>
+  </div>
+</header>
+
+<main id="main">
+  <!-- ============ HERO: the press sheet ============ -->
+  <section class="hero" id="top">
+    <div class="wrap">
+      <div class="sheet grid">
+        <i class="crop tl"></i><i class="crop tr"></i>
+        <div class="slug-top c-full">
+          <p class="eyebrow">
+            <span class="l-en">VELOR 0.2.2 · WINDOWS x64 · 100% RUST · 34 MB</span>
+            <span class="l-hr">VELOR 0.2.2 · WINDOWS x64 · 100 % RUST · 34 MB</span>
+          </p>
+          <div class="inks" aria-hidden="true">
+            <span><i style="background:var(--c)"></i>C</span>
+            <span><i style="background:var(--m)"></i>M</span>
+            <span><i style="background:var(--y)"></i>Y</span>
+            <span><i style="background:var(--k)"></i>K</span>
+            <svg class="reg" viewBox="-12 -12 24 24" aria-hidden="true"><circle r="6.5" fill="none" stroke="currentColor" stroke-width="1"/><circle r="3" fill="none" stroke="currentColor" stroke-width="1"/><path d="M-3 0A3 3 0 0 1 0-3V0Z M3 0A3 3 0 0 1 0 3V0Z" fill="currentColor"/><path d="M-12 0H12M0-12V12" stroke="currentColor" stroke-width="1"/></svg>
+          </div>
+        </div>
+
+        <h1>
+          <span class="l-en">PDF software that treats your GPU like a GPU.</span>
+          <span class="l-hr">PDF softver koji napokon koristi grafičku karticu.</span>
+        </h1>
+
+        <p class="hero-sub">
+          <span class="l-en">A native Windows reader, editor, and CMYK prepress studio built from scratch in Rust with Vello compute shaders. Opens 479 Mpx print banners in 85 ms, scrolls 182k-vector sheets at 240 Hz, and never touches the network.</span>
+          <span class="l-hr">Nativni Windows čitač, uređivač i CMYK prepress studio napisan od nule u Rustu s Vello compute shaderima. Otvara tiskarski roll-up od 479 Mpx za 85 ms, klizi kroz 182k vektora na 240 Hz i nikad ne šalje podatke na internet.</span>
+        </p>
+
+        <div class="hero-dl">
+          <a class="btn-dl" href="https://github.com/Igor9232/Velor/releases/download/v0.2.2/Velor-0.2.2-x64.exe">
+            <span><span class="l-en">Download Velor 0.2.2 (34 MB)</span><span class="l-hr">Preuzmi Velor 0.2.2 (34 MB)</span></span>
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 2.5v11M5 9l5 5 5-5M3 17.5h14"/></svg>
+          </a>
+          <a class="link-rel" href="https://github.com/Igor9232/Velor/releases/tag/v0.2.2" target="_blank" rel="noopener">
+            <span class="l-en">Releases &amp; SHA-256</span><span class="l-hr">Izdanja i SHA-256</span>
+          </a>
+          <ul class="micro">
+            <li><span class="l-en">Portable or 1-click user install</span><span class="l-hr">Prijenosno ili 1-klik instalacija</span></li>
+            <li><span class="l-en">No admin rights</span><span class="l-hr">Bez admin prava</span></li>
+            <li><span class="l-en">No account</span><span class="l-hr">Bez računa</span></li>
+            <li><span class="l-en">Everything unlocked in Public Beta</span><span class="l-hr">Sve otključano u Javnoj beti</span></li>
+          </ul>
+        </div>
+
+        <figure class="reel" id="reel" data-state="playing">
+          <div class="viewport">
+            <video id="reel-video" autoplay muted loop playsinline preload="auto" poster="assets/demo-poster.jpg" width="1920" height="1080"
+                   aria-label="Velor 0.2.2 showreel: poster.pdf with the live frame HUD, a zoom from 28 to 400 percent, the Ctrl+K command palette, and four real CMYK plates from Output Preview sliding into register.">
+              <source src="assets/demo.mp4" type="video/mp4">
+            </video>
+            <div class="transport">
+              <span class="t-name">demo.mp4 · 1920 × 1080 · 30 fps</span>
+              <time id="reel-time" aria-hidden="true">00:00.0 / 00:15.9</time>
+              <button type="button" class="tbtn" id="reel-toggle">
+                <svg class="when-playing" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1.5h2.5v9H2.5zM7 1.5h2.5v9H7z" fill="currentColor"/></svg>
+                <svg class="when-paused" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.2l7.5 4.8L3 10.8z" fill="currentColor"/></svg>
+                <span class="when-playing"><span class="l-en">Pause</span><span class="l-hr">Pauziraj</span></span>
+                <span class="when-paused"><span class="l-en">Play</span><span class="l-hr">Pokreni</span></span>
+              </button>
+              <button type="button" class="tbtn" id="reel-full">
+                <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M1 4.5V1h3.5M7.5 1H11v3.5M11 7.5V11H7.5M4.5 11H1V7.5"/></svg>
+                <span class="l-en">Full screen</span><span class="l-hr">Cijeli zaslon</span>
+              </button>
+            </div>
+          </div>
+          <figcaption class="cap">
+            <b><span class="l-en">Fig. 1</span><span class="l-hr">Sl. 1</span></b>
+            <span>
+              <span class="l-en">Velor 0.2.2 on real files, 16 seconds, silent: poster.pdf with the live frame-time HUD, a dive from 28 % to 400 %, the Ctrl+K palette, then the four real CMYK plates from Output Preview sliding into register.</span>
+              <span class="l-hr">Velor 0.2.2 na pravim datotekama, 16 sekundi, bez zvuka: poster.pdf s HUD-om vremena framea, zum s 28 % na 400 %, paleta Ctrl+K, a zatim četiri prave CMYK separacije iz Output Previewa koje klize u registar.</span>
+            </span>
+          </figcaption>
+        </figure>
+
+        <div class="strip" aria-hidden="true">
+          <svg class="reg" viewBox="-12 -12 24 24"><circle r="6.5" fill="none" stroke="currentColor" stroke-width="1"/><circle r="3" fill="none" stroke="currentColor" stroke-width="1"/><path d="M-3 0A3 3 0 0 1 0-3V0Z M3 0A3 3 0 0 1 0 3V0Z" fill="currentColor"/><path d="M-12 0H12M0-12V12" stroke="currentColor" stroke-width="1"/></svg>
+          <div class="patches">
+            <i style="--d:0"></i><i style="--d:25"></i><i style="--d:50"></i><i style="--d:75"></i><i style="--d:100"></i><i style="--d:125"></i><i style="--d:150"></i><i style="--d:175"></i><i style="--d:200"></i><i style="--d:225"></i><i style="--d:250"></i><i style="--d:275"></i>
+            <i style="--d:300"></i><i style="--d:325"></i><i style="--d:350"></i><i style="--d:375"></i><i style="--d:400"></i><i style="--d:425"></i><i style="--d:450"></i><i style="--d:475"></i><i style="--d:500"></i><i style="--d:525"></i><i style="--d:550"></i><i style="--d:575"></i>
+          </div>
+          <svg class="reg" viewBox="-12 -12 24 24"><circle r="6.5" fill="none" stroke="currentColor" stroke-width="1"/><circle r="3" fill="none" stroke="currentColor" stroke-width="1"/><path d="M-3 0A3 3 0 0 1 0-3V0Z M3 0A3 3 0 0 1 0 3V0Z" fill="currentColor"/><path d="M-12 0H12M0-12V12" stroke="currentColor" stroke-width="1"/></svg>
+        </div>
+        <p class="slug-bottom mono">
+          <span>Velor-0.2.2-x64.exe</span>
+          <span><span class="l-en">34,753,024 bytes</span><span class="l-hr">34.753.024 bajta</span></span>
+          <span>SHA-256 2ded8c91…a7e4a5e6</span>
+          <span><span class="l-en">published 2026-11-23</span><span class="l-hr">objavljeno 2026-11-23</span></span>
+        </p>
+        <i class="crop bl"></i><i class="crop br"></i>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 01 / ENGINE ============ -->
+  <section class="wrap" id="engine" aria-labelledby="engine-h">
+    <div class="sec grid">
+      <div class="sec-head"><span class="sec-no">01</span><span class="sec-name">/ <span class="l-en">Engine</span><span class="l-hr">Motor</span></span></div>
+      <div class="c-text">
+        <h2 id="engine-h"><span class="l-en">Why Acrobat stalls and Velor doesn't.</span><span class="l-hr">Zašto Acrobat zastaje, a Velor ne.</span></h2>
+        <p class="lead">
+          <span class="l-en">Rule #1 in Velor's architecture: the UI thread never parses a PDF, never decodes an image, and never waits on the GPU. It only composites ready VRAM tiles.</span>
+          <span class="l-hr">Pravilo br. 1 u arhitekturi Velora: glavna dretva nikad ne parsira PDF, nikad ne dekodira slike i nikad ne čeka GPU. Samo slaže gotove VRAM teksture.</span>
+        </p>
+      </div>
+
+      <figure class="lanes c-main">
+        <div class="lanes-box">
+          <div class="lane-row axis-row">
+            <span class="lane-name"></span>
+            <div class="track axis">
+              <span style="left:0">0 ms</span>
+              <span style="left:50%;transform:translateX(-50%)">4.17 ms</span>
+              <span style="right:0">8.33 ms</span>
+            </div>
+          </div>
+          <div class="lane-row">
+            <span class="lane-name"><span class="l-en">UI thread</span><span class="l-hr">Glavna dretva</span><small><span class="l-en">composite only</span><span class="l-hr">samo slaganje</span></small></span>
+            <div class="track">
+              <i class="blk ui" style="left:0;width:18%">&lt; 1.5 ms</i>
+              <i class="blk ui" style="left:50%;width:18%">&lt; 1.5 ms</i>
+            </div>
+          </div>
+          <div class="lane-row">
+            <span class="lane-name"><span class="l-en">Worker threads</span><span class="l-hr">Radne dretve</span><small><span class="l-en">20 cores</span><span class="l-hr">20 jezgri</span></small></span>
+            <div class="track">
+              <i class="blk wk half" style="left:0;width:34%"><span class="l-en">parse</span><span class="l-hr">parsiranje</span></i>
+              <i class="blk wk half" style="left:36%;width:64%"><span class="l-en">decode images</span><span class="l-hr">dekodiranje slika</span></i>
+              <i class="blk wk half2" style="left:12%;width:58%">ICC → CMYK</i>
+              <i class="blk wk half2" style="left:72%;width:28%"><span class="l-en">text, fonts</span><span class="l-hr">tekst, fontovi</span></i>
+            </div>
+          </div>
+          <div class="lane-row">
+            <span class="lane-name">GPU<small>Vello compute</small></span>
+            <div class="track">
+              <i class="blk gpu" style="left:6%;width:38%"><span class="l-en">rasterise tiles</span><span class="l-hr">rasterizacija</span></i>
+              <i class="blk gpu" style="left:56%;width:40%"><span class="l-en">rasterise tiles</span><span class="l-hr">rasterizacija</span></i>
+            </div>
+          </div>
+        </div>
+        <figcaption class="figcap">
+          <b><span class="l-en">Fig. 2</span><span class="l-hr">Sl. 2</span></b>
+          <span>
+            <span class="l-en">Two frames at 240 Hz, schematic. The UI thread spends under 1.5 ms of each 4.17 ms frame placing tiles that are already in VRAM. Parsing, decoding and rasterising run elsewhere and never hold it up.</span>
+            <span class="l-hr">Dva framea na 240 Hz, shematski. Glavna dretva troši manje od 1,5 ms od svakog framea od 4,17 ms na slaganje tekstura koje su već u VRAM-u. Parsiranje, dekodiranje i rasterizacija odvijaju se drugdje i nikad je ne zadržavaju.</span>
+          </span>
+        </figcaption>
+      </figure>
+
+      <div class="measure c-full" role="table" aria-label="Measured results">
+        <div class="m-row m-head mono" role="row">
+          <span role="columnheader"><span class="l-en">Measured</span><span class="l-hr">Izmjereno</span></span>
+          <span role="columnheader"><span class="l-en">What</span><span class="l-hr">Što</span></span>
+          <span role="columnheader"><span class="l-en">Detail</span><span class="l-hr">Detalji</span></span>
+        </div>
+        <div class="m-row" role="row">
+          <div class="m-num ember" role="rowheader">85<small>ms</small></div>
+          <div class="m-what" role="cell">
+            <span class="l-en">First visible draft on an 85×205 cm DeviceCMYK roll-up: two 10110×23693 px images, 479 Mpx.</span>
+            <span class="l-hr">Prva vidljiva skica tiskarskog roll-upa 85×205 cm u DeviceCMYK-u: dvije slike od 10110×23693 px, ukupno 479 Mpx.</span>
+          </div>
+          <div class="m-detail" role="cell">
+            <span class="l-en">Full multi-core ICC/CMYK decode dropped from 6.9 s to 1.8 s.</span>
+            <span class="l-hr">Puno višejezgreno ICC/CMYK dekodiranje palo je sa 6,9 s na 1,8 s.</span>
+            <div class="bars" role="img" aria-label="First draft 0.085 s, full decode now 1.8 s, before 6.9 s">
+              <div class="bar first"><span><span class="l-en">first draft</span><span class="l-hr">prva skica</span></span><i style="width:1.23%"></i><b>0.085 s</b></div>
+              <div class="bar"><span><span class="l-en">full decode, now</span><span class="l-hr">puni prikaz, sada</span></span><i style="width:26.1%"></i><b>1.8 s</b></div>
+              <div class="bar before"><span><span class="l-en">full decode, before</span><span class="l-hr">puni prikaz, prije</span></span><i style="width:100%"></i><b>6.9 s</b></div>
+            </div>
+          </div>
+        </div>
+        <div class="m-row" role="row">
+          <div class="m-num" role="rowheader">&lt;&thinsp;1.5<small>ms</small></div>
+          <div class="m-what" role="cell">
+            <span class="l-en">Main-thread CPU frame time while scrolling at 4,000 px/s.</span>
+            <span class="l-hr">CPU vrijeme glavne dretve po frameu pri scrollu od 4000 px/s.</span>
+          </div>
+          <div class="m-detail" role="cell">
+            <span class="l-en">At 100 % and 400 % zoom: zero missing tiles, zero white flashes.</span>
+            <span class="l-hr">Na zumu 100 % i 400 %: nula nedostajućih tekstura, nula bijelih bljeskova.</span>
+          </div>
+        </div>
+        <div class="m-row" role="row">
+          <div class="m-num" role="rowheader"><span class="l-en">182,000</span><span class="l-hr">182.000</span></div>
+          <div class="m-what" role="cell">
+            <span class="l-en">Vector primitives in <code>poster.pdf</code>, culled per tile.</span>
+            <span class="l-hr">Vektorskih elemenata u <code>poster.pdf</code>, filtriranih za svaku teksturu posebno.</span>
+          </div>
+          <div class="m-detail" role="cell">
+            <span class="l-en">A grid spatial index picks the shapes that touch each tile; Vello preflight subdivision keeps every GPU pass small.</span>
+            <span class="l-hr">Prostorni indeks (mreža) bira oblike koji diraju pojedinu teksturu; Vello preflight podjela drži svaki GPU prolaz malim.</span>
+          </div>
+        </div>
+        <div class="m-row" role="row">
+          <div class="m-num" role="rowheader">34<small>MB</small></div>
+          <div class="m-what" role="cell">
+            <span class="l-en">Single standalone native executable. 0 % CPU when idle.</span>
+            <span class="l-hr">Jedna samostalna nativna izvršna datoteka. 0 % CPU-a u mirovanju.</span>
+          </div>
+          <div class="m-detail" role="cell">
+            <span class="l-en"><code>opt-level = "s"</code> + fat LTO on the UI, <code>opt-level = 3</code> on <code>hayro</code>, <code>vello</code>, <code>moxcms</code> and <code>zune-jpeg</code>.</span>
+            <span class="l-hr"><code>opt-level = "s"</code> + fat LTO za sučelje, <code>opt-level = 3</code> za <code>hayro</code>, <code>vello</code>, <code>moxcms</code> i <code>zune-jpeg</code>.</span>
+          </div>
+        </div>
+        <div class="m-row" role="row">
+          <div class="m-num" role="rowheader">0</div>
+          <div class="m-what" role="cell">
+            <span class="l-en">HTTP client crates in the PDF reader.</span>
+            <span class="l-hr">HTTP klijentskih crateova u PDF čitaču.</span>
+          </div>
+          <div class="m-detail" role="cell">
+            <span class="l-en"><code>reqwest</code>, <code>hyper</code>, <code>ureq</code> and <code>openssl-sys</code> are hard-banned in <code>deny.toml</code>.</span>
+            <span class="l-hr"><code>reqwest</code>, <code>hyper</code>, <code>ureq</code> i <code>openssl-sys</code> strogo su zabranjeni u <code>deny.toml</code>.</span>
+          </div>
+        </div>
+        <p class="rig mono">
+          <span class="l-en">Rig: Windows 11 x64, RTX 5070, 20-core CPU, 240 Hz display.</span>
+          <span class="l-hr">Testno računalo: Windows 11 x64, RTX 5070, 20-jezgreni CPU, zaslon 240 Hz.</span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 / TOOLKIT ============ -->
+  <section class="wrap" id="toolkit" aria-labelledby="toolkit-h">
+    <div class="sec grid">
+      <div class="sec-head"><span class="sec-no">02</span><span class="sec-name">/ <span class="l-en">Toolkit</span><span class="l-hr">Alati</span></span></div>
+      <div class="c-text">
+        <h2 id="toolkit-h"><span class="l-en">Three disciplines, one executable.</span><span class="l-hr">Tri discipline, jedna izvršna datoteka.</span></h2>
+        <p class="lead">
+          <span class="l-en">Reader, editor and print-production studio share one 34 MB binary and one GPU engine. In the Public Beta every tool is unlocked.</span>
+          <span class="l-hr">Čitač, uređivač i studio za tiskarsku pripremu dijele jednu binarku od 34 MB i jedan GPU motor. U Javnoj beti svi su alati otključani.</span>
+        </p>
+      </div>
+
+      <div class="matrix c-full">
+        <article class="disc">
+          <h3><span class="l-en">Reader</span><span class="l-hr">Čitač</span></h3>
+          <p class="tier-tag"><i class="sq free"></i><span class="l-en">Velor Free · free forever</span><span class="l-hr">Velor Free · besplatno zauvijek</span></p>
+          <ul>
+            <li><span class="l-en">240 Hz GPU scroll &amp; zoom</span><span class="l-hr">GPU scroll i zum na 240 Hz</span></li>
+            <li><span class="l-en">Tabs &amp; session restore</span><span class="l-hr">Kartice i vraćanje sesije</span></li>
+            <li><span class="l-en">Day, Night, Sepia &amp; Reflow</span><span class="l-hr">Dan, Noć, Sepija i Reflow</span></li>
+            <li><span class="l-en">Full-text &amp; regex search</span><span class="l-hr">Pretraga cijelog teksta i regex</span></li>
+            <li><span class="l-en">OCG layers</span><span class="l-hr">OCG slojevi</span></li>
+            <li><span class="l-en">Annotations, stamps &amp; sticky notes</span><span class="l-hr">Komentari, žigovi i ljepljive bilješke</span></li>
+            <li><span class="l-en">Form filling</span><span class="l-hr">Ispunjavanje obrazaca</span></li>
+            <li><span class="l-en">Full vector &amp; booklet printing</span><span class="l-hr">Puni vektorski ispis i ispis knjižice</span></li>
+            <li><span class="l-en">PAdES signature inspection</span><span class="l-hr">Provjera PAdES potpisa</span></li>
+          </ul>
+          <p class="disc-foot"><span class="l-en">No ads, no accounts, no watermarks.</span><span class="l-hr">Bez reklama, bez računa, bez vodenih žigova.</span></p>
+        </article>
+        <article class="disc">
+          <h3><span class="l-en">Editor &amp; Security</span><span class="l-hr">Uređivanje i sigurnost</span></h3>
+          <p class="tier-tag"><i class="sq pro"></i>Velor Pro</p>
+          <ul>
+            <li><span class="l-en">Direct in-place text &amp; image editing</span><span class="l-hr">Izravno uređivanje teksta i slika na mjestu</span></li>
+            <li><span class="l-en">Visual Page Organizer: merge, split, extract, crop, resize, watermarks, Bates, bookmarks</span><span class="l-hr">Vizualni organizator stranica: spajanje, dijeljenje, izdvajanje, obrezivanje, promjena veličine, vodeni žigovi, Bates, knjižne oznake</span></li>
+            <li><span class="l-en">Local Windows OCR into searchable PDFs</span><span class="l-hr">Lokalni Windows OCR u pretražive PDF-ove</span></li>
+            <li><span class="l-en">Permanent redaction &amp; hidden-data sanitization</span><span class="l-hr">Trajna redakcija i čišćenje skrivenih podataka</span></li>
+            <li><span class="l-en">AES-256 encryption</span><span class="l-hr">AES-256 enkripcija</span></li>
+            <li><span class="l-en">PDF/A-2b and 3b check &amp; convert</span><span class="l-hr">PDF/A-2b i 3b provjera i pretvorba</span></li>
+            <li><span class="l-en">Optimize &amp; Fast Web View</span><span class="l-hr">Optimizacija i Fast Web View</span></li>
+            <li><span class="l-en">Visual &amp; word-level document compare</span><span class="l-hr">Vizualna usporedba i usporedba po riječima</span></li>
+            <li><span class="l-en">Export to DOCX, Markdown, HTML, CSV, SVG, PNG, TIFF</span><span class="l-hr">Izvoz u DOCX, Markdown, HTML, CSV, SVG, PNG, TIFF</span></li>
+            <li><span class="l-en">PAdES signing: Windows store, smart cards, RFC 3161 TSA, LTV</span><span class="l-hr">PAdES potpisivanje: Windows spremište, pametne kartice, RFC 3161 TSA, LTV</span></li>
+          </ul>
+        </article>
+        <article class="disc">
+          <h3><span class="l-en">Print Production</span><span class="l-hr">Tiskarska priprema</span></h3>
+          <p class="tier-tag"><i class="sq studio"></i>Velor Studio</p>
+          <ul>
+            <li><span class="l-en">Output Preview with individual CMYK + spot plates</span><span class="l-hr">Output Preview sa zasebnim CMYK i spot separacijama</span></li>
+            <li><span class="l-en">Overprint simulation</span><span class="l-hr">Simulacija pretiska (overprint)</span></li>
+            <li><span class="l-en">Total Area Coverage (TAC) warning map</span><span class="l-hr">Mapa upozorenja ukupne pokrivenosti bojom (TAC)</span></li>
+            <li><span class="l-en">ICC soft-proofing: 4 rendering intents, BPC, paper &amp; black ink, gamut mask</span><span class="l-hr">ICC soft-proof: 4 namjere renderiranja, BPC, papir i crna tinta, maska gamuta</span></li>
+            <li><span class="l-en">Object Inspector: colour spaces, fonts, effective image DPI</span><span class="l-hr">Inspektor objekata: prostori boja, fontovi, efektivni DPI slika</span></li>
+            <li><span class="l-en">Trim, Bleed, Crop &amp; Art box overlays</span><span class="l-hr">Prikaz Trim, Bleed, Crop i Art okvira</span></li>
+            <li><span class="l-en">Rulers &amp; <code>/VP</code>-calibrated distance, area and angle measurement</span><span class="l-hr">Ravnala i mjerenje udaljenosti, površine i kuta kalibrirano prema <code>/VP</code></span></li>
+            <li><span class="l-en">PDF/X Preflight &amp; fixups: RGB→CMYK, spot→process, black overprint, crop marks</span><span class="l-hr">PDF/X Preflight i popravci: RGB→CMYK, spot→proces, pretisak crne, rezne oznake</span></li>
+          </ul>
+        </article>
+      </div>
+
+      <figure class="plates c-full" id="plates">
+        <div class="plates-side">
+          <h3><span class="l-en">Look at the plates yourself.</span><span class="l-hr">Pogledaj separacije sam.</span></h3>
+          <p class="p-intro">
+            <span class="l-en">Output Preview on <code>transparency.pdf</code>. Every view is an unedited Velor 0.2.2 capture.</span>
+            <span class="l-hr">Output Preview na <code>transparency.pdf</code>. Svaki prikaz je neobrađena snimka Velora 0.2.2.</span>
+          </p>
+          <div class="plate-btns" role="group" aria-label="Plate">
+            <button type="button" data-plate="composite" aria-pressed="true"><i class="swatch sw-all"></i><span class="l-en">Composite</span><span class="l-hr">Kompozit</span><span class="key">CMYK</span></button>
+            <button type="button" data-plate="c" aria-pressed="false"><i class="swatch sw-c"></i><span class="l-en">Cyan</span><span class="l-hr">Cijan</span><span class="key">C</span></button>
+            <button type="button" data-plate="m" aria-pressed="false"><i class="swatch sw-m"></i>Magenta<span class="key">M</span></button>
+            <button type="button" data-plate="y" aria-pressed="false"><i class="swatch sw-y"></i><span class="l-en">Yellow</span><span class="l-hr">Žuta</span><span class="key">Y</span></button>
+            <button type="button" data-plate="k" aria-pressed="false"><i class="swatch sw-k"></i><span class="l-en">Black</span><span class="l-hr">Crna</span><span class="key">K</span></button>
+            <button type="button" data-plate="tac" aria-pressed="false"><i class="swatch sw-tac"></i>TAC<span class="key">&gt; 300 %</span></button>
+          </div>
+          <p class="plate-note" id="plate-note" aria-live="polite"></p>
+        </div>
+        <div class="plates-view">
+          <div class="viewport">
+            <img id="plate-img" src="assets/plates/composite.webp" width="1440" height="860" loading="lazy" decoding="async"
+                 alt="Velor Output Preview showing transparency.pdf with all CMYK plates">
+          </div>
+          <figcaption class="figcap">
+            <b><span class="l-en">Fig. 3</span><span class="l-hr">Sl. 3</span></b>
+            <span>
+              <span class="l-en">Single plates are drawn in black: darker means more ink on that plate. No output intent in this file, so Velor converts RGB with its generic formula and says so in the panel.</span>
+              <span class="l-hr">Pojedine separacije prikazane su u crnoj: tamnije znači više boje na toj ploči. Ova datoteka nema output intent, pa Velor RGB pretvara generičkom formulom i to piše u panelu.</span>
+            </span>
+          </figcaption>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============ 03 / LICENSING ============ -->
+  <section class="wrap" id="licensing" aria-labelledby="licensing-h">
+    <div class="sec grid">
+      <div class="sec-head"><span class="sec-no">03</span><span class="sec-name">/ <span class="l-en">Licensing</span><span class="l-hr">Licenciranje</span></span></div>
+      <div class="c-text">
+        <h2 id="licensing-h"><span class="l-en">Pay once, own forever.</span><span class="l-hr">Platiš jednom, tvoje je zauvijek.</span></h2>
+        <p class="beta-note">
+          <span class="l-en">Public Beta (v0.2.2): every Free, Pro, and Studio tool is unlocked right now so you can punish Velor with your heaviest production PDFs before paying a cent.</span>
+          <span class="l-hr">Javna beta (v0.2.2): svi alati (Free, Pro i Studio) trenutno su otključani kako bi Velor mogao testirati na svojim najtežim produkcijskim PDF-ovima prije nego potrošiš i jedan cent.</span>
+        </p>
+      </div>
+
+      <div class="tiers c-full">
+        <div class="tier-labels" aria-hidden="true">
+          <span></span>
+          <span><span class="l-en">Founding Beta price</span><span class="l-hr">Osnivačka beta cijena</span></span>
+          <span><span class="l-en">From v1.0</span><span class="l-hr">Od v1.0</span></span>
+          <span><span class="l-en">Payment</span><span class="l-hr">Plaćanje</span></span>
+          <span><span class="l-en">Updates</span><span class="l-hr">Nadogradnje</span></span>
+          <span><span class="l-en">Includes</span><span class="l-hr">Uključuje</span></span>
+          <span><span class="l-en">Teams</span><span class="l-hr">Timovi</span></span>
+          <span></span>
+        </div>
+
+        <article class="tier">
+          <div class="t-name"><h3>Velor Free</h3><p><i class="sq free"></i><span class="l-en">Reader</span><span class="l-hr">Čitač</span></p></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">Founding Beta price</span><span class="l-hr">Osnivačka beta cijena</span></span><span class="price"><span class="l-en">€0</span><span class="l-hr">0 €</span></span></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">From v1.0</span><span class="l-hr">Od v1.0</span></span><span class="price-was"><span class="l-en">€0</span><span class="l-hr">0 €</span></span></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">Payment</span><span class="l-hr">Plaćanje</span></span><span><span class="l-en">None, forever</span><span class="l-hr">Nikakvo, zauvijek</span></span></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">Updates</span><span class="l-hr">Nadogradnje</span></span><span><span class="l-en">Every free release</span><span class="l-hr">Sva besplatna izdanja</span></span></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">Includes</span><span class="l-hr">Uključuje</span></span><span><span class="l-en">Personal &amp; commercial reading, basic annotations, forms, full print, signature check.</span><span class="l-hr">Osobno i komercijalno čitanje, osnovni komentari, obrasci, puni ispis, provjera potpisa.</span></span></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">Teams</span><span class="l-hr">Timovi</span></span><span class="t-small">—</span></div>
+          <div class="t-cta">
+            <a class="btn-buy" href="https://github.com/Igor9232/Velor/releases/download/v0.2.2/Velor-0.2.2-x64.exe">
+              <span><span class="l-en">Download free</span><span class="l-hr">Preuzmi besplatno</span></span>
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 2.5v11M5 9l5 5 5-5M3 17.5h14"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="tier">
+          <div class="t-name"><h3>Velor Pro</h3><p><i class="sq pro"></i><span class="l-en">Editor &amp; Security</span><span class="l-hr">Uređivanje i sigurnost</span></p></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">Founding Beta price</span><span class="l-hr">Osnivačka beta cijena</span></span><span class="price"><span class="l-en">€19</span><span class="l-hr">19 €</span></span></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">From v1.0</span><span class="l-hr">Od v1.0</span></span><span class="price-was"><span class="l-en">€35</span><span class="l-hr">35 €</span></span></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">Payment</span><span class="l-hr">Plaćanje</span></span><span><span class="l-en">One-time</span><span class="l-hr">Jednokratno</span></span></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">Updates</span><span class="l-hr">Nadogradnje</span></span><span><span class="l-en">1 year of updates from v1.0; keep your version forever</span><span class="l-hr">1 godina nadogradnji od v1.0; svoju verziju zadržavaš zauvijek</span></span></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">Includes</span><span class="l-hr">Uključuje</span></span><span><span class="l-en">All editing, Page Organizer, OCR, redaction, PDF/A, export, compare, PAdES signing.</span><span class="l-hr">Sve uređivanje, Organizator stranica, OCR, redakcija, PDF/A, izvoz, usporedba, PAdES potpisivanje.</span></span></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">Teams</span><span class="l-hr">Timovi</span></span><span class="t-small">—</span></div>
+          <div class="t-cta">
+            <!-- CHECKOUT_LINK_PRO: replace this mailto with the Pro checkout URL -->
+            <a class="btn-buy solid" href="mailto:support@voidown.com?subject=Velor%20Pro%20Founding%20Beta%20license%20(19%20EUR)">
+              <span><span class="l-en">Buy Velor Pro, €19</span><span class="l-hr">Kupi Velor Pro, 19 €</span></span>
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 10h13M11 5l5 5-5 5"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="tier studio">
+          <div class="t-name"><h3>Velor Studio</h3><p><i class="sq studio"></i><span class="l-en">Print Production</span><span class="l-hr">Tiskarska priprema</span></p></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">Founding Beta price</span><span class="l-hr">Osnivačka beta cijena</span></span><span class="price"><span class="l-en">€49</span><span class="l-hr">49 €</span></span></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">From v1.0</span><span class="l-hr">Od v1.0</span></span><span class="price-was"><span class="l-en">€99</span><span class="l-hr">99 €</span></span></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">Payment</span><span class="l-hr">Plaćanje</span></span><span><span class="l-en">One-time</span><span class="l-hr">Jednokratno</span></span></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">Updates</span><span class="l-hr">Nadogradnje</span></span><span><span class="l-en">1 year of updates from v1.0; keep your version forever</span><span class="l-hr">1 godina nadogradnji od v1.0; svoju verziju zadržavaš zauvijek</span></span></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">Includes</span><span class="l-hr">Uključuje</span></span><span><span class="l-en">Everything in Pro + full CMYK prepress, ICC soft-proof, calibrated <code>/VP</code> measurement, Preflight &amp; fixups.</span><span class="l-hr">Sve iz Pro + puni CMYK prepress, ICC soft-proof, kalibrirano <code>/VP</code> mjerenje, Preflight i popravci.</span></span></div>
+          <div class="t-cell"><span class="t-lab"><span class="l-en">Teams</span><span class="l-hr">Timovi</span></span><span><span class="l-en">5-seat Studio Team pack: €199 Founding, €399 from v1.0.</span><span class="l-hr">Studio Team paket za 5 mjesta: 199 € osnivačka cijena, 399 € od v1.0.</span></span></div>
+          <div class="t-cta">
+            <!-- CHECKOUT_LINK_STUDIO: replace this mailto with the Studio checkout URL -->
+            <a class="btn-buy solid" href="mailto:support@voidown.com?subject=Velor%20Studio%20Founding%20Beta%20license%20(49%20EUR)">
+              <span><span class="l-en">Buy Velor Studio, €49</span><span class="l-hr">Kupi Velor Studio, 49 €</span></span>
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 10h13M11 5l5 5-5 5"/></svg>
+            </a>
+            <!-- CHECKOUT_LINK_STUDIO_TEAM: replace this mailto with the Studio Team (5 seats) checkout URL -->
+            <a class="btn-buy" href="mailto:support@voidown.com?subject=Velor%20Studio%20Team%20(5%20seats)%20Founding%20Beta%20(199%20EUR)">
+              <span><span class="l-en">Studio Team, 5 seats, €199</span><span class="l-hr">Studio Team, 5 mjesta, 199 €</span></span>
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 10h13M11 5l5 5-5 5"/></svg>
+            </a>
+          </div>
+        </article>
+      </div>
+      <p class="buy-note c-full">
+        <span class="l-en">Until online checkout is live, purchases go through <a href="mailto:support@voidown.com">support@voidown.com</a>.</span>
+        <span class="l-hr">Dok online naplata ne proradi, kupnja ide preko <a href="mailto:support@voidown.com">support@voidown.com</a>.</span>
+      </p>
+
+      <div class="fallback c-main">
+        <div class="fallback-text">
+          <h3><span class="l-en">Perpetual fallback</span><span class="l-hr">Trajna licenca (perpetual fallback)</span></h3>
+          <p>
+            <span class="l-en">Offline ECDSA P-256 license keys (<code>VELOR1-…</code>). Velor checks the binary's release date — never your system clock, never a license server. Any version built within your update window works permanently, even offline ten years from now.</span>
+            <span class="l-hr">Offline ECDSA P-256 licencni ključevi (<code>VELOR1-…</code>). Velor uspoređuje datum izdanja aplikacije — nikad tvoj sat, nikad udaljeni server. Svaka verzija izdana unutar tvog perioda nadogradnji radi trajno, čak i potpuno offline za deset godina.</span>
+          </p>
+        </div>
+        <figure class="fallback-fig">
+          <div class="tline" aria-hidden="true">
+            <div class="tline-win" style="left:6%;width:58%"><span><span class="l-en">your update window, 12 months</span><span class="l-hr">tvoj period nadogradnji, 12 mjeseci</span></span></div>
+            <div class="tline-axis"></div>
+            <span class="tick in" style="left:11%"><b>v1.0</b></span>
+            <span class="tick in" style="left:25%"><b>v1.1</b></span>
+            <span class="tick in" style="left:40%"><b>v1.2</b></span>
+            <span class="tick in" style="left:57%"><b>v1.3</b></span>
+            <span class="tick" style="left:74%"><b>v1.4</b></span>
+            <span class="tick" style="left:90%"><b>v2.0</b></span>
+            <span class="tline-mark" style="left:6%;transform:none"><span class="l-en">key issued</span><span class="l-hr">ključ izdan</span></span>
+            <span class="tline-mark" style="left:64%;transform:translateX(-100%)">updates_until</span>
+          </div>
+          <div class="tline-legend">
+            <span><i class="in"></i><span class="l-en">Released inside the window: works permanently</span><span class="l-hr">Izdano unutar perioda: radi trajno</span></span>
+            <span><i></i><span class="l-en">Released later: optional upgrade</span><span class="l-hr">Izdano kasnije: neobavezna nadogradnja</span></span>
+          </div>
+          <figcaption class="figcap">
+            <b><span class="l-en">Fig. 4</span><span class="l-hr">Sl. 4</span></b>
+            <span>
+              <span class="l-en">Example key with a one-year window; version numbers are illustrative. Velor compares the release date built into each binary with <code>updates_until</code> in your key.</span>
+              <span class="l-hr">Primjer ključa s jednogodišnjim periodom; brojevi verzija su ilustrativni. Velor uspoređuje datum izdanja ugrađen u svaku binarku s poljem <code>updates_until</code> u tvom ključu.</span>
+            </span>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 04 / VERIFICATION ============ -->
+  <section class="wrap" id="verification" aria-labelledby="verification-h">
+    <div class="sec grid">
+      <div class="sec-head"><span class="sec-no">04</span><span class="sec-name">/ <span class="l-en">Verification</span><span class="l-hr">Provjera</span></span></div>
+      <div class="c-text">
+        <h2 id="verification-h"><span class="l-en">Trust, privacy and straight answers.</span><span class="l-hr">Povjerenje, privatnost i izravni odgovori.</span></h2>
+      </div>
+
+      <div class="verify c-main">
+        <h3><span class="l-en">Check the download</span><span class="l-hr">Provjeri preuzetu datoteku</span></h3>
+        <p class="lead" style="font-size:17px;margin-top:10px">
+          <span class="l-en">Run this in PowerShell, in the folder that holds the download. It prints OK only if the file is byte-for-byte the one published on GitHub.</span>
+          <span class="l-hr">Pokreni ovo u PowerShellu, u mapi u kojoj je preuzeta datoteka. Ispisat će OK samo ako je datoteka bajt po bajt ona objavljena na GitHubu.</span>
+        </p>
+        <div class="code">
+          <div class="code-bar">
+            <span>PowerShell</span>
+            <button type="button" class="tbtn copy" data-copy="sha-cmd">
+              <span class="when-idle"><span class="l-en">Copy</span><span class="l-hr">Kopiraj</span></span>
+              <span class="when-done"><span class="l-en">Copied</span><span class="l-hr">Kopirano</span></span>
+            </button>
+          </div>
+<pre><code id="sha-cmd"><span class="v">$expected</span> = <span class="s">'2ded8c911d66d48bf896c89cdfcf67ee7783d4735670f347882d0e20a7e4a5e6'</span>
+<span class="v">$actual</span> = (Get-FileHash <span class="s">.\Velor-0.2.2-x64.exe</span> -Algorithm SHA256).Hash.ToLower()
+<span class="k">if</span> (<span class="v">$actual</span> -eq <span class="v">$expected</span>) { <span class="s">'OK  SHA-256 matches'</span> } <span class="k">else</span> { <span class="s">"MISMATCH  $actual"</span> }</code></pre>
+        </div>
+
+        <div class="facts">
+          <dl>
+            <div><dt><span class="l-en">File</span><span class="l-hr">Datoteka</span></dt><dd>Velor-0.2.2-x64.exe</dd></div>
+            <div><dt><span class="l-en">Size</span><span class="l-hr">Veličina</span></dt><dd><span class="l-en">34,753,024 bytes (34 MB)</span><span class="l-hr">34.753.024 bajta (34 MB)</span></dd></div>
+            <div><dt>SHA-256</dt><dd class="hash"><span class="hash-row"><span id="sha-hash">2ded8c911d66d48bf896c89cdfcf67ee7783d4735670f347882d0e20a7e4a5e6</span><button type="button" class="copy-mini copy" data-copy="sha-hash"><span class="when-idle"><span class="l-en">Copy</span><span class="l-hr">Kopiraj</span></span><span class="when-done">✓</span></button></span></dd></div>
+            <div><dt><span class="l-en">Published</span><span class="l-hr">Objavljeno</span></dt><dd>2026-11-23</dd></div>
+            <div><dt><span class="l-en">Requires</span><span class="l-hr">Zahtijeva</span></dt><dd><span class="l-en">Windows 10 1809 or newer, x64</span><span class="l-hr">Windows 10 1809 ili noviji, x64</span></dd></div>
+            <div><dt><span class="l-en">Release</span><span class="l-hr">Izdanje</span></dt><dd><a href="https://github.com/Igor9232/Velor/releases/tag/v0.2.2" target="_blank" rel="noopener">github.com/Igor9232/Velor/releases/tag/v0.2.2</a></dd></div>
+          </dl>
+          <div class="smartscreen">
+            <h3><span class="l-en">Why Windows says “Unknown publisher”</span><span class="l-hr">Zašto Windows kaže „Nepoznati izdavač”</span></h3>
+            <p>
+              <span class="l-en">v0.2.2 is an indie public beta without a paid Authenticode certificate yet, so Windows SmartScreen shows “Unknown publisher” until Authenticode is added ahead of v1.0. To start it, choose <kbd>More info</kbd> then <kbd>Run anyway</kbd>.</span>
+              <span class="l-hr">v0.2.2 je nezavisna javna beta koja još nema plaćeni Authenticode certifikat, pa Windows SmartScreen prikazuje „Nepoznati izdavač” dok se Authenticode ne doda prije v1.0. Za pokretanje odaberi <kbd>Više informacija</kbd> pa <kbd>Ipak pokreni</kbd>.</span>
+            </p>
+            <p>
+              <span class="l-en">What you can check instead: every release carries SHA-256 checksums, and update manifests are signed with ECDSA P-256. Velor refuses a manifest whose signature doesn't verify.</span>
+              <span class="l-hr">Što možeš provjeriti umjesto toga: svako izdanje ima SHA-256 sažetke, a manifesti ažuriranja potpisani su ECDSA P-256 ključem. Velor odbija manifest čiji se potpis ne može provjeriti.</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="faq">
+          <details>
+            <summary><span class="q-no">Q1</span><span><span class="l-en">Why Windows x64 only?</span><span class="l-hr">Zašto samo Windows x64?</span></span><i class="pm" aria-hidden="true"></i></summary>
+            <div class="a">
+              <p><span class="l-en">Velor is built and measured on Windows first: DirectX 12 or Vulkan, Windows shell integration, local Windows OCR and the Windows certificate store for signing. Staying on one platform is how every number on this page stays measured rather than estimated. It runs on Windows 10 1809 or newer, x64.</span>
+              <span class="l-hr">Velor se razvija i mjeri prvo na Windowsima: DirectX 12 ili Vulkan, integracija s Windows ljuskom, lokalni Windows OCR i Windowsovo spremište certifikata za potpisivanje. Upravo zato su sve brojke na ovoj stranici izmjerene, a ne procijenjene. Radi na Windowsima 10 1809 ili novijim, x64.</span></p>
+            </div>
+          </details>
+          <details>
+            <summary><span class="q-no">Q2</span><span><span class="l-en">Does anything leave my PC?</span><span class="l-hr">Odlazi li išta s mog računala?</span></span><i class="pm" aria-hidden="true"></i></summary>
+            <div class="a">
+              <p><span class="l-en">Your documents never do. There is no telemetry, no account and no cloud, and the PDF reader contains no HTTP client crates at all: they are banned at build time in <code>deny.toml</code>.</span>
+              <span class="l-hr">Tvoji dokumenti nikad. Nema telemetrije, računa ni oblaka, a PDF čitač nema nijedan HTTP klijentski crate: zabranjeni su već pri izgradnji u <code>deny.toml</code>.</span></p>
+              <p><span class="l-en">The one request Velor can make is the update check, which you choose in the first-run Setup or in Settings: an HTTPS GET of a signed manifest through Windows' own WinHTTP, with no identifiers and no version number in the request.</span>
+              <span class="l-hr">Jedini zahtjev koji Velor može poslati je provjera ažuriranja, koju biraš pri prvom pokretanju ili u Postavkama: HTTPS GET potpisanog manifesta preko Windowsovog WinHTTP-a, bez identifikatora i bez broja verzije u zahtjevu.</span></p>
+            </div>
+          </details>
+          <details>
+            <summary><span class="q-no">Q3</span><span><span class="l-en">What happens after 1 year?</span><span class="l-hr">Što se događa nakon godinu dana?</span></span><i class="pm" aria-hidden="true"></i></summary>
+            <div class="a">
+              <p><span class="l-en">Nothing stops working. Every version released inside your update window keeps working with your key permanently, offline, on any date. If you later want a version released after your window, you can extend updates at a discount, or stay on your version with no obligation.</span>
+              <span class="l-hr">Ništa ne prestaje raditi. Svaka verzija izdana unutar tvog perioda nadogradnji trajno radi s tvojim ključem, offline, na bilo koji datum. Ako kasnije poželiš verziju izdanu nakon tog perioda, nadogradnje možeš produžiti uz popust ili ostati na svojoj verziji bez ikakve obveze.</span></p>
+            </div>
+          </details>
+          <details>
+            <summary><span class="q-no">Q4</span><span><span class="l-en">Do you run a print shop or design studio?</span><span class="l-hr">Vodiš tiskaru ili dizajnerski studio?</span></span><i class="pm" aria-hidden="true"></i></summary>
+            <div class="a">
+              <p><span class="l-en">Join the studio beta program. Send real production feedback from your heaviest jobs to <a href="mailto:support@voidown.com?subject=Velor%20studio%20beta%20program">support@voidown.com</a> and get a free lifetime Velor Studio license in return.</span>
+              <span class="l-hr">Pridruži se beta programu za tiskare i studije. Pošalji stvarne povratne informacije sa svojih najtežih poslova na <a href="mailto:support@voidown.com?subject=Velor%20studio%20beta%20program">support@voidown.com</a> i zauzvrat dobij besplatnu doživotnu licencu za Velor Studio.</span></p>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <div class="colophon">
+    <div class="strip" aria-hidden="true">
+      <svg class="reg" viewBox="-12 -12 24 24"><circle r="6.5" fill="none" stroke="currentColor" stroke-width="1"/><circle r="3" fill="none" stroke="currentColor" stroke-width="1"/><path d="M-3 0A3 3 0 0 1 0-3V0Z M3 0A3 3 0 0 1 0 3V0Z" fill="currentColor"/><path d="M-12 0H12M0-12V12" stroke="currentColor" stroke-width="1"/></svg>
+      <div class="patches"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <p class="colo-line">
+      <span><span class="l-en">Velor — built by Igor</span><span class="l-hr">Velor — autor: Igor</span></span>
+      <a href="https://velor.voidown.com">velor.voidown.com</a>
+      <a href="mailto:support@voidown.com">support@voidown.com</a>
+      <a href="https://github.com/Igor9232/Velor/releases" target="_blank" rel="noopener"><span class="l-en">GitHub Releases</span><span class="l-hr">GitHub izdanja</span></a>
+    </p>
+    <p class="colo-set mono">
+      <span class="l-en">Set in Archivo and IBM Plex Mono. Every screen and frame of video on this page is a real Velor 0.2.2 capture.</span>
+      <span class="l-hr">Složeno pismima Archivo i IBM Plex Mono. Svaki zaslon i kadar videa na ovoj stranici je stvarna snimka Velora 0.2.2.</span>
+    </p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var TITLES = {
+    en: 'Velor 0.2.2 · GPU PDF reader, editor and CMYK prepress for Windows',
+    hr: 'Velor 0.2.2 · GPU PDF čitač, uređivač i CMYK prepress za Windows'
+  };
+  var PLATE_NOTES = {
+    composite: { en: 'All four plates together. Highest ink coverage in view: 320 %.', hr: 'Sve četiri separacije zajedno. Najveća pokrivenost bojom u prikazu: 320 %.' },
+    c: { en: 'Cyan plate on its own: darkest in the green stripes on the left and the blue circle.', hr: 'Samo cijan separacija: najtamnija u zelenim trakama lijevo i u plavom krugu.' },
+    m: { en: 'Magenta plate on its own: the pink stripes on the right run at full magenta.', hr: 'Samo magenta separacija: ružičaste trake desno idu do pune magente.' },
+    y: { en: 'Yellow plate on its own: strongest at the red end of the gradient and in the near-black square.', hr: 'Samo žuta separacija: najjača na crvenom kraju prijelaza i u gotovo crnom kvadratu.' },
+    k: { en: 'Black plate on its own: the dark circle, the diagonal line and the near-black square.', hr: 'Samo crna separacija: tamni krug, dijagonalna linija i gotovo crni kvadrat.' },
+    tac: { en: 'TAC warning on: hatching marks areas above the 300 % ink limit. Only the near-black square crosses it; the highest coverage in view is 320 %.', hr: 'Uključeno TAC upozorenje: šrafura označava područja iznad granice od 300 % boje. Prelazi je samo gotovo crni kvadrat; najveća pokrivenost u prikazu je 320 %.' }
+  };
+  var PLATE_ALT = {
+    composite: 'Velor Output Preview of transparency.pdf with all CMYK plates',
+    c: 'Velor Output Preview showing only the cyan plate, in black',
+    m: 'Velor Output Preview showing only the magenta plate, in black',
+    y: 'Velor Output Preview showing only the yellow plate, in black',
+    k: 'Velor Output Preview showing only the black plate',
+    tac: 'Velor Output Preview with the total area coverage warning hatching a square above 300 percent'
+  };
+  var currentPlate = 'composite';
+
+  function lang() { return root.getAttribute('data-lang') === 'hr' ? 'hr' : 'en'; }
+
+  function setLang(l) {
+    root.setAttribute('data-lang', l);
+    root.lang = l;
+    try { localStorage.setItem('velor-lang', l); } catch (e) {}
+    document.title = TITLES[l];
+    var btns = document.querySelectorAll('[data-set-lang]');
+    for (var i = 0; i < btns.length; i++) btns[i].setAttribute('aria-pressed', String(btns[i].getAttribute('data-set-lang') === l));
+    showPlateNote();
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-set-lang]');
+    if (b) setLang(b.getAttribute('data-set-lang'));
+  });
+
+  /* ---- plate viewer ---- */
+  var plateImg = document.getElementById('plate-img');
+  var plateNote = document.getElementById('plate-note');
+  function showPlateNote() { if (plateNote) plateNote.textContent = PLATE_NOTES[currentPlate][lang()]; }
+  var plateBtns = document.querySelectorAll('[data-plate]');
+  for (var p = 0; p < plateBtns.length; p++) {
+    plateBtns[p].addEventListener('click', function () {
+      currentPlate = this.getAttribute('data-plate');
+      plateImg.src = 'assets/plates/' + currentPlate + '.webp';
+      plateImg.alt = PLATE_ALT[currentPlate];
+      for (var j = 0; j < plateBtns.length; j++) plateBtns[j].setAttribute('aria-pressed', String(plateBtns[j] === this));
+      showPlateNote();
+    });
+  }
+  if ('IntersectionObserver' in window && plateImg) {
+    var pre = new IntersectionObserver(function (entries) {
+      if (entries[0].isIntersecting) {
+        ['c', 'm', 'y', 'k', 'tac'].forEach(function (k) { var im = new Image(); im.src = 'assets/plates/' + k + '.webp'; });
+        pre.disconnect();
+      }
+    }, { rootMargin: '400px' });
+    pre.observe(plateImg);
+  }
+
+  /* ---- reel ---- */
+  var reel = document.getElementById('reel');
+  var v = document.getElementById('reel-video');
+  var toggle = document.getElementById('reel-toggle');
+  var full = document.getElementById('reel-full');
+  var time = document.getElementById('reel-time');
+  var userPaused = false;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function fmt(t) {
+    t = Math.max(0, t || 0);
+    var m = Math.floor(t / 60), s = t - m * 60;
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s.toFixed(1);
+  }
+  function sync() {
+    reel.setAttribute('data-state', v.paused ? 'paused' : 'playing');
+    toggle.setAttribute('aria-label', v.paused ? (lang() === 'hr' ? 'Pokreni video' : 'Play video') : (lang() === 'hr' ? 'Pauziraj video' : 'Pause video'));
+  }
+  function play() { var r = v.play(); if (r && r.catch) r.catch(function () { sync(); }); }
+
+  if (v) {
+    if (reduce) { v.removeAttribute('autoplay'); v.pause(); userPaused = true; }
+    v.addEventListener('play', sync);
+    v.addEventListener('pause', sync);
+    v.addEventListener('timeupdate', function () { time.textContent = fmt(v.currentTime) + ' / ' + fmt(v.duration || 15.9); });
+    v.addEventListener('click', function () { if (v.paused) { userPaused = false; play(); } else { userPaused = true; v.pause(); } });
+    toggle.addEventListener('click', function () { if (v.paused) { userPaused = false; play(); } else { userPaused = true; v.pause(); } });
+    full.addEventListener('click', function () {
+      if (v.requestFullscreen) v.requestFullscreen();
+      else if (v.webkitRequestFullscreen) v.webkitRequestFullscreen();
+      else if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();
+      if (v.paused) { userPaused = false; play(); }
+    });
+    /* Off screen, the reel stops decoding: Velor idles at 0 % CPU, so should its page. */
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (entries) {
+        var on = entries[0].isIntersecting;
+        if (!on && !v.paused) v.pause();
+        else if (on && v.paused && !userPaused) play();
+      }, { threshold: 0.15 }).observe(v);
+    }
+    sync();
+  }
+
+  /* ---- copy buttons ---- */
+  var copies = document.querySelectorAll('[data-copy]');
+  for (var c = 0; c < copies.length; c++) {
+    copies[c].addEventListener('click', function () {
+      var btn = this;
+      var text = document.getElementById(btn.getAttribute('data-copy')).textContent;
+      function done() { btn.classList.add('done'); setTimeout(function () { btn.classList.remove('done'); }, 1800); }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () { fallback(text); done(); });
+      } else { fallback(text); done(); }
+    });
+  }
+  function fallback(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  setLang(lang());
+})();
+</script>
+</body>
+</html>
